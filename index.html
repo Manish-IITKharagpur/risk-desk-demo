@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Your Risk Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --marine: #0c1b2e;
+  --panel: #12263d;
+  --panel-up: #1a324e;
+  --rule: #2a4665;
+  --ink: #edf2f7;
+  --ink-2: #a9bbcd;
+  --buy: #3a93f0;
+  --sell: #ec4d68;
+  --flag: #f5b83d;
+  --candle-up: #c4d2e0;
+  --candle-down: #5f7a98;
+  --font: "Barlow Semi Condensed", "Segoe UI", "Arial Narrow", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--marine); }
+body {
+  margin: 0; background: var(--marine); color: var(--ink);
+  font-family: var(--font); font-size: 16px; line-height: 1.4;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+button, input { font: inherit; color: inherit; }
+h1, h2, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--flag); outline-offset: 2px; }
+
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px;
+  padding: 8px 16px; background: #081422; border-bottom: 1px solid var(--rule);
+}
+.brand { font-weight: 700; letter-spacing: .01em; }
+.brand span { color: var(--ink-2); font-weight: 500; margin-left: 8px; }
+.quotes { display: flex; flex-wrap: wrap; gap: 2px 18px; flex: 1; min-width: 0; color: var(--ink-2); font-size: 15px; }
+.quotes b { color: var(--ink); font-weight: 600; margin-left: 5px; transition: color .25s; }
+.quotes b.up { color: var(--buy); }
+.quotes b.down { color: var(--sell); }
+.example { color: #1a1204; background: var(--flag); font-weight: 600; font-size: 15px; padding: 2px 9px; border-radius: 2px; }
+
+.intro { padding: 18px 16px 14px; }
+.intro h1 { font-size: clamp(27px, 4vw, 38px); line-height: 1.1; font-weight: 700; }
+.intro p { color: var(--ink-2); font-size: 18px; margin-top: 4px; max-width: 72ch; }
+
+.desk {
+  display: grid; gap: 1px; background: var(--rule);
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+  grid-template-areas: "queue case" "rules case"; grid-template-rows: auto 1fr;
+}
+.pane { background: var(--panel); padding: 14px 16px; min-width: 0; }
+.queue { grid-area: queue; } .rules { grid-area: rules; } .case { grid-area: case; }
+.pane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+h2 { font-size: 19px; font-weight: 700; }
+.note { color: var(--ink-2); font-size: 15px; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--ink-2); font-weight: 500; font-size: 14px; padding: 4px 6px; border-bottom: 1px solid var(--rule); }
+td { padding: 7px 6px; border-bottom: 1px solid #1d3650; vertical-align: top; }
+.num { text-align: right; white-space: nowrap; }
+.queue tbody tr { cursor: pointer; }
+.queue tbody tr:hover { background: var(--panel-up); }
+.queue tbody tr[aria-selected="true"] { background: var(--panel-up); box-shadow: inset 3px 0 0 var(--flag); }
+.queue tbody tr.off { color: var(--ink-2); }
+.queue tbody tr.fresh { animation: fresh 1.1s ease-out; }
+@keyframes fresh { from { background: rgba(245,184,61,.35); } to { background: transparent; } }
+.acct { font-weight: 600; white-space: nowrap; }
+.tag { display: block; font-size: 15px; }
+.tag.flagged::before { content: "\2691"; color: var(--flag); margin-right: 5px; }
+.dec { display: block; font-size: 14px; color: var(--ink-2); }
+
+.rule { margin-top: 12px; }
+.rule label { display: flex; justify-content: space-between; gap: 12px; }
+.rule output { font-weight: 700; white-space: nowrap; }
+input[type=range] { width: 100%; accent-color: var(--flag); margin: 5px 0 0; height: 24px; }
+.toggle { display: flex; gap: 8px; align-items: center; margin-top: 12px; cursor: pointer; }
+.toggle input { width: 18px; height: 18px; accent-color: var(--flag); }
+
+.case-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.case-id { font-size: clamp(26px, 3vw, 34px); font-weight: 700; line-height: 1.1; }
+.case-pattern { font-size: 19px; color: var(--flag); font-weight: 600; }
+.case-pattern.calm { color: var(--ink-2); }
+.replay {
+  margin-left: auto; background: var(--ink); color: var(--marine); border: 0; border-radius: 2px;
+  padding: 7px 14px; font-weight: 700; cursor: pointer; min-height: 40px;
+}
+.replay:hover { background: #fff; }
+.chart-info { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; margin: 10px 0 4px; color: var(--ink-2); font-size: 15px; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 13px; }
+.legend i { font-style: normal; }
+.legend .b { color: var(--buy); } .legend .s { color: var(--sell); }
+.chart { position: relative; height: 320px; background: #0a1727; border: 1px solid var(--rule); touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: 100%; }
+.tip {
+  position: absolute; z-index: 2; pointer-events: none; display: none; white-space: nowrap;
+  background: var(--ink); color: var(--marine); font-weight: 600; font-size: 15px; padding: 3px 8px; border-radius: 2px;
+}
+.running { min-height: 22px; margin-top: 6px; color: var(--ink-2); }
+.running b { color: var(--ink); }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 8px; }
+.tile { background: var(--panel); padding: 8px 12px; }
+.tile span { display: block; color: var(--ink-2); font-size: 15px; }
+.tile b { font-size: 24px; font-weight: 600; line-height: 1.15; }
+
+.detail { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; margin-top: 14px; }
+.reasons { list-style: none; margin: 6px 0 0; padding: 0; }
+.reasons li { position: relative; padding: 3px 0 3px 22px; transition: opacity .3s; font-size: 17px; }
+.reasons li::before { content: "\2691"; position: absolute; left: 0; color: var(--flag); }
+.reasons li.dim { opacity: .28; }
+.spark-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.spark-read { color: var(--ink-2); font-size: 15px; white-space: nowrap; }
+.spark { height: 96px; margin-top: 4px; }
+.spark svg { display: block; width: 100%; height: 100%; }
+
+.decide { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.decide p { font-weight: 600; margin-right: 6px; }
+.decide button { background: transparent; border: 1px solid var(--ink-2); border-radius: 2px; padding: 7px 16px; min-height: 42px; cursor: pointer; font-weight: 600; }
+.decide button:hover:not(:disabled) { background: var(--panel-up); }
+.decide button[aria-pressed="true"] { background: var(--flag); border-color: var(--flag); color: #1a1204; }
+.decide button:disabled { opacity: .4; cursor: not-allowed; }
+
+details { margin-top: 12px; color: var(--ink-2); }
+summary { cursor: pointer; padding: 4px 0; }
+.trade-list { max-height: 210px; overflow: auto; margin-top: 4px; color: var(--ink); }
+.log { margin-top: 12px; }
+.log ol { list-style: none; margin: 4px 0 0; padding: 0; max-height: 120px; overflow: auto; }
+.log li { padding: 2px 0; }
+.log .empty { color: var(--ink-2); }
+
+.how { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 18px; padding: 18px 16px 6px; }
+.how b { display: block; }
+.how span { color: var(--ink-2); font-size: 15px; }
+.how em { font-style: normal; color: var(--flag); font-weight: 700; margin-right: 5px; }
+.closing { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; padding: 12px 16px 18px; }
+.closing h2 { margin-bottom: 3px; }
+.closing p { color: var(--ink-2); max-width: 72ch; }
+footer { padding: 10px 16px 22px; color: var(--ink-2); font-size: 14px; border-top: 1px solid var(--rule); }
+
+@media (max-width: 900px) {
+  .desk { grid-template-columns: minmax(0,1fr); grid-template-areas: "queue" "case" "rules"; grid-template-rows: auto; }
+  .detail, .closing { grid-template-columns: minmax(0,1fr); }
+  .how { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .chart { height: 270px; }
+  .col-win { display: none; }
+  .replay { margin-left: 0; width: 100%; }
+  .how { grid-template-columns: minmax(0,1fr); gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+.topbar, .intro, .pane, .how, .closing, footer { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">Risk desk<span>by BODHHISCALE</span></div>
+  <div class="quotes" id="quotes" aria-hidden="true"></div>
+  <div class="example">Example: made-up accounts and numbers</div>
+</div>
+
+<div class="intro">
+  <h1>Who is costing you money this week?</h1>
+  <p>This is what your head of risk would open each morning. Pick an account, replay its trades, and make the call.</p>
+</div>
+
+<main class="desk">
+  <section class="pane queue" aria-label="Accounts to review">
+    <div class="pane-head"><h2>Accounts to review</h2><span class="note" id="queueCount"></span></div>
+    <table>
+      <thead><tr><th>Account</th><th>Looks like</th><th class="num">Avg hold</th><th class="num col-win">Win rate</th><th class="num">Result for you</th></tr></thead>
+      <tbody id="queueBody"></tbody>
+    </table>
+  </section>
+
+  <section class="pane rules" aria-label="Your rules">
+    <div class="pane-head"><h2>Your rules</h2><span class="note">Change them and watch the list update</span></div>
+    <div class="rule">
+      <label for="ruleHold"><span>Flag an average hold shorter than</span><output id="outHold"></output></label>
+      <input type="range" id="ruleHold" min="10" max="240" step="5" value="60">
+    </div>
+    <div class="rule">
+      <label for="ruleWin"><span>Flag a win rate of at least</span><output id="outWin"></output></label>
+      <input type="range" id="ruleWin" min="50" max="95" step="1" value="65">
+    </div>
+    <label class="toggle"><input type="checkbox" id="ruleLinked" checked><span>Flag accounts that share a device</span></label>
+  </section>
+
+  <section class="pane case" aria-label="Selected account">
+    <div class="case-head">
+      <div class="case-id" id="caseId"></div>
+      <div class="case-pattern" id="casePattern"></div>
+      <button class="replay" id="replay" type="button">Replay trades</button>
+    </div>
+    <div class="chart-info">
+      <span id="chartTitle"></span>
+      <span class="legend" id="legend"></span>
+    </div>
+    <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+    <div class="running" id="running" aria-live="off"></div>
+    <div class="tiles" id="tiles"></div>
+    <div class="detail">
+      <div>
+        <h2 id="whyTitle">Why it was flagged</h2>
+        <ul class="reasons" id="reasons"></ul>
+      </div>
+      <div>
+        <div class="spark-head"><h2>Result for you this week</h2><span class="spark-read" id="sparkRead"></span></div>
+        <div class="spark" id="spark"></div>
+      </div>
+    </div>
+    <div class="decide" id="decide">
+      <p>Head of risk decides:</p>
+      <button type="button" data-d="Agreed">Agree</button>
+      <button type="button" data-d="Disagreed">Disagree</button>
+      <button type="button" data-d="Watching">Keep watching</button>
+    </div>
+    <details>
+      <summary>Show these trades as a list</summary>
+      <div class="trade-list" id="tradeList"></div>
+    </details>
+    <div class="log">
+      <h2>Decision log</h2>
+      <ol id="log"></ol>
+    </div>
+  </section>
+</main>
+
+<section class="how" aria-label="How it works">
+  <div><em>1</em><b>Trades come in</b><span>Trade records from your trading platform</span></div>
+  <div><em>2</em><b>Daily check</b><span>Every account is compared against your rules</span></div>
+  <div><em>3</em><b>Accounts get flagged</b><span>Each flag says why, in plain words</span></div>
+  <div><em>4</em><b>Your head of risk decides</b><span>A person makes the call, not the system</span></div>
+</section>
+<section class="closing">
+  <div>
+    <h2>It stays yours</h2>
+    <p>You own the data, the code and the backups, with full documentation and no single person holding the keys. Accounts appear as codes, so the analysis needs no client names.</p>
+  </div>
+  <div>
+    <h2>What could come next</h2>
+    <p>A morning report on your clients, and real numbers on how your bridge performs.</p>
+  </div>
+</section>
+<footer>Prepared by BODHHISCALE. Every account, trade, price and amount on this page is made up to show how the desk works.</footer>
+
+<script>
+const MINUS = "−";
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const $ = id => document.getElementById(id);
+
+const SYMBOLS = {
+  XAUUSD: { base: 4012.5, dp: 2, vol: 1.1, mult: 45 },
+  EURUSD: { base: 1.0842, dp: 5, vol: 0.00016, mult: 300000 },
+  US30:   { base: 44210,  dp: 0, vol: 11, mult: 4 },
+};
+
+const M1 = "1-minute candles, one busy hour";
+const H1 = "1-hour candles, about two and a half days";
+const ACCOUNTS = [
+  { id: "C-2217", kind: "arb",     name: "Price-delay trading", sym: "EURUSD", tf: M1, seed: 11, holdS: 9,     trades: 186, win: 94, result: -7860 },
+  { id: "C-5512", kind: "skilled", name: "Consistently profitable", sym: "XAUUSD", tf: H1, seed: 23, holdS: 22800, trades: 48, win: 68, result: -6300 },
+  { id: "C-1042", kind: "scalp",   name: "Possible scalping",   sym: "XAUUSD", tf: M1, seed: 37, holdS: 38,    trades: 410, win: 71, result: -4210 },
+  { id: "C-3380", kind: "scalp",   name: "Possible scalping",   sym: "US30",   tf: M1, seed: 41, holdS: 52,    trades: 265, win: 62, result: -1940 },
+  { id: "C-4105", kind: "bonus",   name: "Possible bonus hunting", sym: "XAUUSD", tf: H1, seed: 53, holdS: 18000, trades: 14, win: 50, result: -900, linked: true },
+  { id: "C-7730", kind: "normal",  sym: "US30",   tf: M1, seed: 61, holdS: 95,    trades: 130, win: 58, result: 410 },
+  { id: "C-6021", kind: "normal",  sym: "EURUSD", tf: M1, seed: 71, holdS: 180,   trades: 96,  win: 54, result: 640 },
+  { id: "C-8814", kind: "normal",  sym: "XAUUSD", tf: H1, seed: 83, holdS: 7200,  trades: 22,  win: 52, result: 1150 },
+];
+
+const rules = { hold: 60, win: 65, linked: true };
+const decisions = {};
+const log = [];
+let selected = "C-2217";
+let play = null;
+
+function fmtHold(s) {
+  if (s < 90) return s + " sec";
+  if (s < 3600) return Math.round(s / 60) + " min";
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h + " hr" + (m ? " " + m + " min" : "");
+}
+const fmtPx = (v, dp) => v.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+function fmtMoney(v) {
+  const n = Math.abs(Math.round(v)).toLocaleString("en-US");
+  return (v < 0 ? MINUS : "+") + "$" + n;
+}
+function flagOf(a) {
+  if (a.kind === "arb") return a.name;
+  if (a.linked) return rules.linked ? a.name : null;
+  const short = a.holdS < rules.hold, high = a.win >= rules.win;
+  if (a.kind === "scalp") return short || high ? a.name : null;
+  if (a.kind === "skilled") return high ? a.name : null;
+  if (short) return "Short trades";
+  if (high) return "High win rate";
+  return null;
+}
+function reasonsOf(a) {
+  const holdLine = "Holds trades for " + fmtHold(a.holdS) + " on average";
+  const winLine = "Wins " + a.win + "% of trades";
+  switch (a.kind) {
+    case "arb": return [holdLine, winLine + ", far above the other accounts here", "Often buys or sells just before a sharp move, as if the price had already changed elsewhere"];
+    case "scalp": return [holdLine + " (your rule: under " + fmtHold(rules.hold) + ")", a.trades + " trades this week", "Most of the profit comes within the first few seconds of a trade"];
+    case "skilled": return [winLine + " (your rule: at least " + rules.win + "%)", holdLine + ", so no sign of fast-trading tricks", "Made money in 4 of the last 5 weeks. May simply be a skilled trader"];
+    case "bonus": return ["Shares a device with C-4106 and C-4109", "Takes opposite trades at the same time across those accounts, so one side always wins", "Asked to withdraw within 2 days of taking the bonus"];
+    default: return [holdLine, winLine, "The result for you looks ordinary, so this could be a false alarm"];
+  }
+}
+
+/* Made-up market and trades, repeatable for each account */
+function rng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const cache = {};
+function dataOf(a) {
+  if (cache[a.id]) return cache[a.id];
+  const r = rng(a.seed), s = SYMBOLS[a.sym], n = 60, candles = [], jumps = {};
+  const drift = a.kind === "skilled" ? s.vol * .18 : 0;
+  if (a.kind === "arb") for (let i = 6; i < n - 2; i += 7 + Math.floor(r() * 4)) jumps[i] = r() < .5 ? 1 : -1;
+  let p = s.base;
+  for (let i = 0; i < n; i++) {
+    const o = p;
+    let c = o + (r() - .5) * s.vol * 2 + drift;
+    if (jumps[i]) c = o + jumps[i] * s.vol * (3.4 + r());
+    candles.push({ o, c, h: Math.max(o, c) + r() * s.vol * .55, l: Math.min(o, c) - r() * s.vol * .55 });
+    p = c;
+  }
+  const priceAt = t => { const i = Math.min(n - 1, Math.floor(t)), f = t - i; return candles[i].o + (candles[i].c - candles[i].o) * f; };
+  const unit = a.tf === H1 ? 3600 : 60;
+  const trades = [];
+  const add = (t, dir, hold, win, exitPrice, who) => {
+    const entry = priceAt(t), end = Math.min(n - .02, t + hold);
+    const delta = s.vol * (.3 + r() * .55);
+    const exit = exitPrice !== undefined ? exitPrice : entry + dir * (win ? delta : -delta);
+    const pnl = (exit - entry) * dir * s.mult * (who ? .35 : 1);
+    [[t, entry], [end, exit]].forEach(([tt, v]) => { const c = candles[Math.floor(Math.min(n - 1, tt))]; c.h = Math.max(c.h, v); c.l = Math.min(c.l, v); });
+    trades.push({ t, end, dir, entry, exit, pnl, held: Math.round((end - t) * unit), who: who || a.id });
+  };
+  if (a.kind === "arb") {
+    Object.keys(jumps).forEach(j => { j = +j; add(j + .04, jumps[j], .17, true, candles[j].o + jumps[j] * s.vol * 2.8); });
+    for (let i = 0; i < 3; i++) add(r() * 56, r() < .5 ? 1 : -1, .15, r() < .8);
+  } else if (a.kind === "bonus") {
+    for (let i = 0; i < 6; i++) {
+      const t = 3 + i * 9 + r() * 3, h = 4 + r() * 2, ex = priceAt(Math.min(59, t + h));
+      add(t, 1, h, true, ex, "C-4105");
+      add(t, -1, h, true, ex, "C-4106");
+    }
+  } else if (a.holdS / unit >= 1) {
+    const count = a.kind === "skilled" ? 9 : 7;
+    for (let i = 0; i < count; i++) {
+      const t = 2 + i * (52 / count) + r() * 2, h = (a.holdS / unit) * (.7 + r() * .6), ex = priceAt(Math.min(59, t + h));
+      const up = ex >= priceAt(t), win = r() < a.win / 100;
+      add(t, up === win ? 1 : -1, h, win, ex);
+    }
+  } else {
+    const count = a.kind === "scalp" ? 30 : 11;
+    for (let i = 0; i < count; i++) add(r() * 58, r() < .5 ? 1 : -1, (a.holdS / 60) * (.6 + r() * .8), r() < a.win / 100);
+  }
+  trades.sort((x, y) => x.t - y.t);
+  const week = [];
+  for (let i = 0; i < 20; i++) {
+    const f = i / 19, wob = Math.sin(f * Math.PI) * (r() - .5) * Math.abs(a.result) * .5;
+    week.push(i === 0 ? 0 : a.result * f + wob);
+  }
+  const lo = Math.min(...candles.map(c => c.l)), hi = Math.max(...candles.map(c => c.h));
+  return cache[a.id] = { candles, trades, week, lo, hi, n, s };
+}
+
+/* Price chart */
+function drawChart(a, upto) {
+  const box = $("chart"), W = box.clientWidth, H = box.clientHeight;
+  const d = dataOf(a), axisR = 62, axisB = 22, top = 10;
+  const pw = W - axisR, ph = H - axisB - top, step = pw / d.n;
+  const pad = (d.hi - d.lo) * .05, lo = d.lo - pad, hi = d.hi + pad;
+  const x = t => t * step, y = v => top + (hi - v) / (hi - lo) * ph;
+  let out = "";
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, yy = y(v).toFixed(1);
+    out += `<line x1="0" x2="${pw}" y1="${yy}" y2="${yy}" stroke="#1d3650"/>`;
+    out += `<text x="${pw + 6}" y="${+yy + 4}" fill="#a9bbcd" font-size="13">${fmtPx(v, d.s.dp)}</text>`;
+  }
+  const isHour = a.tf === H1, every = W < 520 ? 20 : 10;
+  for (let i = 0; i < d.n; i += every) {
+    const label = isHour ? ["Mon", "Tue", "Wed"][Math.floor(i / 24)] + " " + String(i % 24).padStart(2, "0") + ":00" : "10:" + String(i).padStart(2, "0");
+    out += `<line x1="${x(i)}" x2="${x(i)}" y1="${top}" y2="${top + ph}" stroke="#16293f"/>`;
+    out += `<text x="${x(i) + 2}" y="${H - 6}" fill="#a9bbcd" font-size="13">${label}</text>`;
+  }
+  const bw = Math.max(2, step * .62);
+  let last = null;
+  d.candles.forEach((c, i) => {
+    if (i > upto) return;
+    last = c;
+    const cx = x(i + .5), up = c.c >= c.o, col = up ? "var(--candle-up)" : "var(--candle-down)";
+    const yt = y(Math.max(c.o, c.c)), hgt = Math.max(1, Math.abs(y(c.o) - y(c.c)));
+    out += `<line x1="${cx}" x2="${cx}" y1="${y(c.h)}" y2="${y(c.l)}" stroke="${col}"/>`;
+    out += `<rect x="${cx - bw / 2}" y="${yt}" width="${bw}" height="${hgt}" fill="${up ? "#0a1727" : col}" stroke="${col}"/>`;
+  });
+  if (last) {
+    const ly = y(last.c);
+    out += `<line x1="0" x2="${pw}" y1="${ly}" y2="${ly}" stroke="#a9bbcd" stroke-dasharray="2 4"/>`;
+    out += `<rect x="${pw}" y="${ly - 10}" width="${axisR}" height="20" fill="#edf2f7"/>`;
+    out += `<text x="${pw + 6}" y="${ly + 4}" fill="#0c1b2e" font-size="13" font-weight="600">${fmtPx(last.c, d.s.dp)}</text>`;
+  }
+  let hits = "";
+  d.trades.forEach((t, i) => {
+    if (t.t + .5 > upto + 1) return;
+    const off = a.kind === "bonus" ? (t.dir > 0 ? 6 : -6) : 0;
+    const cx = x(t.t + .5), cy = y(t.entry) + off, col = t.dir > 0 ? "var(--buy)" : "var(--sell)";
+    const done = t.end + .5 <= upto + 1;
+    if (done) {
+      const ex = x(t.end + .5), ey = y(t.exit) + off;
+      out += `<line x1="${cx}" y1="${cy}" x2="${ex}" y2="${ey}" stroke="${col}" stroke-width="2"${t.pnl < 0 ? ' stroke-dasharray="3 3"' : ""}/>`;
+      out += `<circle cx="${ex}" cy="${ey}" r="3.5" fill="#0a1727" stroke="${col}" stroke-width="2"/>`;
+    }
+    const pts = t.dir > 0 ? `${cx},${cy - 6} ${cx - 6},${cy + 5} ${cx + 6},${cy + 5}` : `${cx},${cy + 6} ${cx - 6},${cy - 5} ${cx + 6},${cy - 5}`;
+    out += `<polygon points="${pts}" fill="${col}" stroke="#0a1727"/>`;
+    hits += `<circle data-i="${i}" cx="${cx}" cy="${cy}" r="13" fill="transparent"/>`;
+  });
+  if (upto < d.n - 1) out += `<line x1="${x(upto + 1)}" x2="${x(upto + 1)}" y1="${top}" y2="${top + ph}" stroke="var(--flag)" stroke-width="2"/>`;
+  const old = box.querySelector("svg");
+  if (old) old.remove();
+  box.insertAdjacentHTML("afterbegin", `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Candlestick chart of ${a.sym} with this account's buy and sell trades marked">${out}${hits}</svg>`);
+}
+function tradeText(t) {
+  const who = t.who !== selected ? t.who + ": " : "";
+  return `${who}${t.dir > 0 ? "Buy" : "Sell"}, held ${fmtHold(t.held)}, trader ${fmtMoney(t.pnl)}`;
+}
+$("chart").addEventListener("pointermove", e => {
+  const hit = e.target.closest && e.target.closest("[data-i]"), tip = $("tip");
+  if (!hit) { tip.style.display = "none"; return; }
+  const t = dataOf(current()).trades[+hit.dataset.i], box = $("chart").getBoundingClientRect();
+  tip.textContent = tradeText(t);
+  tip.style.display = "block";
+  const tx = Math.min(box.width - tip.offsetWidth - 4, Math.max(4, e.clientX - box.left - tip.offsetWidth / 2));
+  const ty = e.clientY - box.top - 36;
+  tip.style.left = tx + "px";
+  tip.style.top = (ty < 2 ? e.clientY - box.top + 18 : ty) + "px";
+});
+$("chart").addEventListener("pointerleave", () => { $("tip").style.display = "none"; });
+
+/* Weekly result line */
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+function drawSpark(a) {
+  const box = $("spark"), W = box.clientWidth, H = box.clientHeight, w = dataOf(a).week;
+  const lo = Math.min(0, ...w), hi = Math.max(0, ...w), bottom = 18, right = 8;
+  const x = i => 3 + i * (W - 3 - right) / 19, y = v => 6 + (hi - v) / ((hi - lo) || 1) * (H - bottom - 8);
+  const pts = w.map((v, i) => x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ");
+  let labels = "";
+  DAYS.forEach((d, i) => { labels += `<text x="${x(i * 4) }" y="${H - 3}" fill="#a9bbcd" font-size="13">${d}</text>`; });
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Result for you across the week, ending at ${fmtMoney(a.result)}">
+    <line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="#2a4665"/>
+    <polyline points="${pts}" fill="none" stroke="#edf2f7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle id="sparkDot" cx="${x(19)}" cy="${y(w[19])}" r="4" fill="#edf2f7" stroke="#12263d" stroke-width="2"/>
+    ${labels}</svg>`;
+  const read = i => {
+    $("sparkRead").textContent = DAYS[Math.min(4, Math.floor(i / 4))] + ": " + fmtMoney(w[i]);
+    const dot = $("sparkDot"); dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(w[i]));
+  };
+  read(19);
+  box.onpointermove = e => { const r = box.getBoundingClientRect(); read(Math.max(0, Math.min(19, Math.round((e.clientX - r.left - 3) / ((W - 3 - right) / 19))))); };
+  box.onpointerleave = () => read(19);
+}
+
+/* Screen state */
+const current = () => ACCOUNTS.find(a => a.id === selected);
+function renderQueue(prevFlagged) {
+  const rows = ACCOUNTS.map(a => ({ a, flag: flagOf(a) }));
+  rows.sort((x, y) => (!!y.flag - !!x.flag) || (x.a.result - y.a.result));
+  $("queueBody").innerHTML = rows.map(({ a, flag }) => {
+    const dec = decisions[a.id];
+    const isNew = prevFlagged && flag && !prevFlagged.has(a.id);
+    return `<tr tabindex="0" data-id="${a.id}" aria-selected="${a.id === selected}" class="${flag ? "" : "off"}${isNew ? " fresh" : ""}">
+      <td class="acct">${a.id}</td>
+      <td><span class="tag${flag ? " flagged" : ""}">${flag || "Not flagged"}</span>${dec ? `<span class="dec">${dec.d}</span>` : ""}</td>
+      <td class="num">${fmtHold(a.holdS)}</td>
+      <td class="num col-win">${a.win}%</td>
+      <td class="num">${fmtMoney(a.result)}</td></tr>`;
+  }).join("");
+  const flagged = rows.filter(r => r.flag), open = flagged.filter(r => !decisions[r.a.id]).length;
+  $("queueCount").textContent = open ? `${open} of ${flagged.length} flagged accounts to decide` : flagged.length ? "All flagged accounts decided" : "Nothing flagged under these rules";
+}
+function renderCase() {
+  const a = current(), flag = flagOf(a), d = dataOf(a);
+  $("caseId").textContent = a.id;
+  const pat = $("casePattern"); pat.textContent = flag || "Not flagged under your rules"; pat.classList.toggle("calm", !flag);
+  $("chartTitle").textContent = `${a.sym}, ${a.tf}`;
+  $("legend").innerHTML = `<i class="b">▲</i><i>Buy</i><i class="s">▼</i><i>Sell</i><i>○ Exit</i><i>Dashed: losing trade</i>`;
+  $("tiles").innerHTML = [["Average hold", fmtHold(a.holdS)], ["Trades this week", a.trades], ["Win rate", a.win + "%"], ["Result for you", fmtMoney(a.result)]]
+    .map(([l, v]) => `<div class="tile"><span>${l}</span><b>${v}</b></div>`).join("");
+  $("whyTitle").textContent = flag ? "Why it was flagged" : "What the desk sees";
+  $("reasons").innerHTML = reasonsOf(a).map(t => `<li>${t}</li>`).join("");
+  drawChart(a, d.n - 1);
+  drawSpark(a);
+  $("running").textContent = "";
+  $("tradeList").innerHTML = `<table><thead><tr>${a.kind === "bonus" ? "<th>Account</th>" : ""}<th>Side</th><th class="num">Held</th><th class="num">Trader made</th></tr></thead><tbody>${d.trades.map(t => `<tr>${a.kind === "bonus" ? `<td>${t.who}</td>` : ""}<td>${t.dir > 0 ? "Buy" : "Sell"}</td><td class="num">${fmtHold(t.held)}</td><td class="num">${fmtMoney(t.pnl)}</td></tr>`).join("")}</tbody></table>`;
+  renderDecide();
+}
+function renderDecide() {
+  const a = current(), flag = flagOf(a), dec = decisions[a.id];
+  document.querySelectorAll("#decide button").forEach(b => {
+    b.disabled = !flag;
+    b.setAttribute("aria-pressed", dec && dec.d === b.dataset.d ? "true" : "false");
+  });
+}
+function renderLog() {
+  $("log").innerHTML = log.length
+    ? log.map(l => `<li>${l.time}: ${l.id} ${l.d.toLowerCase()} by head of risk</li>`).join("")
+    : `<li class="empty">Every decision is saved here with who made it and when. Make one above to see it.</li>`;
+}
+function select(id, opts) {
+  stopReplay();
+  selected = id;
+  renderQueue();
+  renderCase();
+  if (opts && opts.replay) startReplay();
+}
+
+/* Replay */
+function stopReplay() {
+  if (!play) return;
+  cancelAnimationFrame(play.raf);
+  play = null;
+  $("replay").textContent = "Replay trades";
+  document.querySelectorAll("#reasons li").forEach(li => li.classList.remove("dim"));
+  $("running").textContent = "";
+}
+function startReplay() {
+  if (reduceMotion) return;
+  stopReplay();
+  const a = current(), d = dataOf(a), lis = [...document.querySelectorAll("#reasons li")], dur = 7000, begin = performance.now();
+  $("replay").textContent = "Stop replay";
+  play = { raf: 0 };
+  let lastDrawn = -1;
+  const frame = now => {
+    if (!play) return;
+    const p = Math.min(1, (now - begin) / dur), upto = Math.min(d.n - 1, Math.floor(p * d.n));
+    if (upto !== lastDrawn) {
+      lastDrawn = upto;
+      drawChart(a, upto);
+      const seen = d.trades.filter(t => t.end + .5 <= upto + 1);
+      const sum = seen.reduce((s, t) => s + t.pnl, 0);
+      $("running").innerHTML = `Replaying: <b>${seen.length}</b> trades closed, trader ${seen.length ? fmtMoney(sum) : "$0"}`;
+    }
+    lis.forEach((li, i) => li.classList.toggle("dim", p < [.2, .5, .8][i]));
+    if (p < 1) { play.raf = requestAnimationFrame(frame); return; }
+    const finalText = $("running").innerHTML.replace("Replaying: ", "This sample: ");
+    stopReplay();
+    drawChart(a, d.n - 1);
+    $("running").innerHTML = finalText;
+  };
+  play.raf = requestAnimationFrame(frame);
+}
+$("replay").addEventListener("click", () => {
+  if (play) { stopReplay(); drawChart(current(), dataOf(current()).n - 1); }
+  else if (reduceMotion) renderCase();
+  else startReplay();
+});
+
+/* Input */
+const stacked = () => matchMedia("(max-width: 900px)").matches;
+$("queueBody").addEventListener("click", e => {
+  const tr = e.target.closest("tr");
+  if (!tr) return;
+  select(tr.dataset.id);
+  if (stacked()) document.querySelector(".case").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+});
+$("queueBody").addEventListener("keydown", e => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  const id = e.target.dataset.id;
+  select(id);
+  document.querySelector(`#queueBody tr[data-id="${id}"]`).focus();
+});
+$("decide").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b || b.disabled) return;
+  const id = selected;
+  const time = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  decisions[id] = { d: b.dataset.d };
+  log.unshift({ id, d: b.dataset.d, time });
+  renderLog();
+  const next = ACCOUNTS.filter(a => flagOf(a) && !decisions[a.id]).sort((x, y) => x.result - y.result)[0];
+  if (next) select(next.id); else { renderQueue(); renderDecide(); }
+});
+function syncRules() {
+  const prev = new Set(ACCOUNTS.filter(flagOf).map(a => a.id));
+  rules.hold = +$("ruleHold").value; rules.win = +$("ruleWin").value; rules.linked = $("ruleLinked").checked;
+  $("outHold").textContent = fmtHold(rules.hold);
+  $("outWin").textContent = rules.win + "%";
+  stopReplay();
+  renderQueue(prev);
+  renderCase();
+}
+["ruleHold", "ruleWin", "ruleLinked"].forEach(id => $(id).addEventListener("input", syncRules));
+let resizeT;
+addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (!play) { drawChart(current(), dataOf(current()).n - 1); drawSpark(current()); } }, 120); });
+
+/* Quote strip */
+const quotes = Object.entries(SYMBOLS).map(([sym, s]) => ({ sym, px: s.base, s }));
+function renderQuotes() { $("quotes").innerHTML = quotes.map(q => `<span>${q.sym}<b id="q-${q.sym}">${q.px.toLocaleString("en-US", { minimumFractionDigits: q.s.dp, maximumFractionDigits: q.s.dp })}</b></span>`).join(""); }
+renderQuotes();
+if (!reduceMotion) setInterval(() => {
+  const q = quotes[Math.floor(Math.random() * quotes.length)], move = (Math.random() - .5) * q.s.vol * .5;
+  q.px += move;
+  const el = $("q-" + q.sym);
+  el.textContent = q.px.toLocaleString("en-US", { minimumFractionDigits: q.s.dp, maximumFractionDigits: q.s.dp });
+  el.className = move >= 0 ? "up" : "down";
+}, 1400);
+
+/* Start */
+$("outHold").textContent = fmtHold(rules.hold);
+$("outWin").textContent = rules.win + "%";
+renderLog();
+function start() { select(selected); if ($("chart").getBoundingClientRect().top < innerHeight - 160) startReplay(); }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+</script>
+</body>
+</html>
