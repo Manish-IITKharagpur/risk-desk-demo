@@ -514,9 +514,10 @@ function renderDecide() {
     b.setAttribute("aria-pressed", dec && dec.d === b.dataset.d ? "true" : "false");
   });
 }
+const LOG_TEXT = { Agreed: "agreed with the flag on", Disagreed: "disagreed with the flag on", Watching: "chose to keep watching" };
 function renderLog() {
   $("log").innerHTML = log.length
-    ? log.map(l => `<li>${l.time}: ${l.id} ${l.d.toLowerCase()} by head of risk</li>`).join("")
+    ? log.map(l => `<li>${l.time}: Head of risk ${LOG_TEXT[l.d]} ${l.id}</li>`).join("")
     : `<li class="empty">Every decision is saved here with who made it and when. Make one above to see it.</li>`;
 }
 function select(id, opts) {
